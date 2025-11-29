@@ -34,7 +34,7 @@ const MOCK_CLIENT_REQUESTS = [
   },
   {
     id: 4,
-    title: "Paint Living Room",
+    title: "Paint Living Room With Extra Long Description That Might Overflow",
     type: "Painting",
     date: "2023-10-28",
     location: "321 Pine St, Springfield",
@@ -52,9 +52,9 @@ const ClientHome = () => {
 
   return (
     <div className="page-container">
-      <h2 className="text-2xl font-bold mb-4 text-client-header">My Current Requests</h2>
+      <h2 className="text-2xl font-bold mb-6 text-client-header">My Current Requests</h2>
 
-      <div className="controls">
+      <div className="controls mb-6">
         <input
           className="search-input"
           placeholder="Search my requests..."
@@ -65,39 +65,49 @@ const ClientHome = () => {
         <button className="action-btn client-post-btn">+ Post Request</button>
       </div>
 
-      <div className="card-list">
+      {/* Responsive Card Grid */}
+      <div
+        className="card-list grid gap-6"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+      >
         {filtered.length > 0 ? (
           filtered.map((req) => (
-            <div 
-              key={req.id} 
-              className={`card hover:shadow-lg transition-shadow duration-200 flex gap-4 items-center p-4 ${
-                req.status === "accepted" ? "border-2 border-green-400" : "border border-gray-200"
-              }`}
+            <div
+              key={req.id}
+              className="card hover:shadow-lg transition-shadow duration-200 flex flex-col"
+              style={{ minHeight: '380px' }} // same height for all cards
             >
               {/* Thumbnail */}
-              <img 
-                src={req.thumbnail} 
-                alt={req.title} 
-                className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+              <img
+                src={req.thumbnail}
+                alt={req.title}
+                className="w-full h-36 object-cover rounded-lg mb-3"
               />
 
               {/* Request Details */}
               <div className="flex-1 flex flex-col">
-                <h3 className="font-semibold text-lg mb-1 text-client-header">{req.title}</h3>
-                <span className="tag mb-1">{req.type}</span>
-                <p className="text-gray-700">{req.location}</p>
-                <p className="text-gray-500 text-sm">Posted: {req.date}</p>
+                <h3 className="font-semibold text-lg mb-1 line-clamp-1" title={req.title}>
+                  {req.title}
+                </h3>
+                <span className="tag mb-1 line-clamp-1">{req.type}</span>
+                <p className="text-gray-700 line-clamp-1" title={req.location}>{req.location}</p>
+                <p className="text-gray-500 text-sm mb-1">{`Posted: ${req.date}`}</p>
 
                 {req.status === "accepted" && (
-                  <p className="text-green-600 font-semibold">Accepted Offer: {req.acceptedPrice}</p>
+                  <p className="text-green-600 font-semibold mb-1">
+
+                  </p>
                 )}
 
-                <button className="action-btn client-view-btn mt-2 w-max px-3 py-1 text-sm">View Full Details</button>
+                {/* Button at bottom */}
+                <button className="action-btn client-view-btn mt-auto w-full py-2 text-sm">
+                  View Full Details
+                </button>
               </div>
             </div>
           ))
         ) : (
-          <p className="text-gray-400">No requests found.</p>
+          <p className="text-gray-400 col-span-full">No requests found.</p>
         )}
       </div>
     </div>

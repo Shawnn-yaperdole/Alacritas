@@ -2,13 +2,14 @@
 import React from 'react';
 
 const Header = ({ userMode, toggleMode, setIsMenuOpen, currentView, setCurrentView }) => {
+  // Dynamic color based on user mode
   const themeColor = userMode === 'client' ? 'var(--primary-client)' : 'var(--primary-provider)';
 
   return (
     <header
       className="header w-full flex items-center justify-between"
       style={{
-        borderBottom: `4px solid ${themeColor}`,
+        borderBottom: 'none',
         backgroundColor: 'var(--white)',
       }}
     >
@@ -24,15 +25,16 @@ const Header = ({ userMode, toggleMode, setIsMenuOpen, currentView, setCurrentVi
 
       {/* Navigation */}
       <nav className="flex-1 flex justify-center gap-4 overflow-x-auto">
-        {['home', 'messages', 'offers'].map((view) => (
+        {['home', 'messages', 'offers', 'profile'].map((view) => (
           <button
             key={view}
-            className={`nav-btn px-3 py-1 font-medium border-b-2 transition-colors ${
-              currentView === view
-                ? 'border-gray-800 text-gray-800'
-                : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-400'
-            }`}
+            className="nav-btn px-3 py-1 font-medium border-b-2 transition-colors"
             onClick={() => setCurrentView(view)}
+            style={{
+              color: currentView === view ? themeColor : '#666',
+              borderBottom: currentView === view ? `3px solid ${themeColor}` : '3px solid transparent',
+              fontWeight: currentView === view ? 'bold' : 'normal',
+            }}
           >
             {view.charAt(0).toUpperCase() + view.slice(1)}
           </button>

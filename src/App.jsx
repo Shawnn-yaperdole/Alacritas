@@ -1,15 +1,17 @@
 // src/App.jsx
 import React, { useState } from 'react';
 import './App.css';
+
 import Header from './Global/Header';
 import Menu from './Global/Menu';
 import MessagesPage from './Global/Messages';
 import ClientHome from './Client/ClientHome';
-import OffersPage from './Client/ClientOffers';
+import Offers from './Global/Offers';
+import Profile from './Global/Profile';
 
 const ProviderHome = () => (
   <div className="page-container bg-gray-100 p-6 rounded shadow-md">
-    <h2 className="text-3xl font-bold text-blue-500 mb-2">Provider Home</h2>
+    <h2 className="text-3xl font-bold mb-2">Provider Home</h2>
     <p className="text-gray-700">Content for providers goes here.</p>
   </div>
 );
@@ -20,16 +22,22 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMode = () => {
-    setUserMode((prev) => (prev === 'client' ? 'provider' : 'client'));
+    setUserMode(prev => (prev === 'client' ? 'provider' : 'client'));
     setCurrentView('home');
   };
 
   const renderContent = () => {
     switch (currentView) {
-      case 'home': return userMode === 'client' ? <ClientHome /> : <ProviderHome />;
-      case 'messages': return <MessagesPage />; // Full width page
-      case 'offers': return <OffersPage mode={userMode} />;
-      default: return userMode === 'client' ? <ClientHome /> : <ProviderHome />;
+      case 'home':
+        return userMode === 'client' ? <ClientHome /> : <ProviderHome />;
+      case 'messages':
+        return <MessagesPage />;
+      case 'offers':
+        return <Offers role={userMode} />;
+      case 'profile':
+        return <Profile role={userMode} />;
+      default:
+        return userMode === 'client' ? <ClientHome /> : <ProviderHome />;
     }
   };
 
@@ -42,20 +50,18 @@ function App() {
         currentView={currentView}
         setCurrentView={setCurrentView}
       />
+
       <main className="main w-full flex-1">
         {renderContent()}
       </main>
-      <Menu isOpen={isMenuOpen} close={() => setIsMenuOpen(false)} logout={() => alert('Logged out')} />
+
+      <Menu
+        isOpen={isMenuOpen}
+        close={() => setIsMenuOpen(false)}
+        logout={() => alert('Logged out')}
+      />
     </div>
   );
 }
 
 export default App;
-
-
-
-
-
-
-
-
