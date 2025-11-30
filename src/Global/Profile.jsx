@@ -15,6 +15,7 @@ const Profile = ({ role }) => {
   const [defaultCommunity, setDefaultCommunity] = useState(initialData.defaultCommunity);
   const [bio, setBio] = useState(initialData.bio);
   const [skills, setSkills] = useState(initialData.skills || []);
+  const [isEditingBio, setIsEditingBio] = useState(false);
 
   const handleSave = () => {
     const updatedData = {
@@ -30,6 +31,7 @@ const Profile = ({ role }) => {
     };
     console.log("Saved Profile Data:", updatedData);
     alert("Profile saved!");
+    setIsEditingBio(false); // stop editing after saving
   };
 
   return (
@@ -78,17 +80,30 @@ const Profile = ({ role }) => {
 
         {/* Bio */}
         <div className="bio flex flex-col gap-2">
-          <strong>About Me:</strong>
-          <p>{bio}</p>
-          <button
-            className="edit-btn action-btn"
-            onClick={() => {
-              const newBio = prompt("Edit your bio", bio);
-              if (newBio) setBio(newBio);
-            }}
-          >
-            Edit
-          </button>
+          <div className="flex items-center">
+            <strong className="text-lg">About Me:</strong>
+            <button
+              className="edit-btn action-btn px-2 py-0.5 text-s ml-1 !h-auto !leading-none !py-0 !px-1 relative top-0.5"
+              onClick={() => setIsEditingBio(!isEditingBio)}
+            >
+              {isEditingBio ? "Save" : "Edit"}
+            </button>
+          </div>
+
+          {isEditingBio ? (
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              className="bio-textarea p-2 border rounded resize-none w-full"
+              rows={1}
+              onInput={(e) => {
+                e.target.style.height = "auto";
+                e.target.style.height = e.target.scrollHeight + "px";
+              }}
+            />
+          ) : (
+            <p className="bio-text">{bio}</p>
+          )}
         </div>
 
         {/* Provider Skills */}
@@ -99,9 +114,7 @@ const Profile = ({ role }) => {
               {skills.map((skill, idx) => (
                 <div
                   key={idx}
-                  className={`p-2 rounded flex items-center justify-between border ${
-                    skill.verified ? "border-green-500 bg-green-50" : "border-gray-300"
-                  }`}
+                  className={`p-2 rounded flex items-center justify-between border ${skill.verified ? "border-green-500 bg-green-50" : "border-gray-300"}`}
                 >
                   <span>{skill.name}</span>
                   {skill.verified && <span className="text-green-600 font-bold">✔</span>}
@@ -112,8 +125,11 @@ const Profile = ({ role }) => {
         )}
 
         {/* Save Button */}
-        <div className="flex justify-center md:justify-start">
-          <button className="action-btn client-post-btn w-1/4 mt-4" onClick={handleSave}>
+        <div className="flex flex-col justify-end w-full h-full mt-6">
+          <button
+            className="action-btn client-post-btn w-1/3"
+            onClick={handleSave}
+          >
             Save Profile
           </button>
         </div>

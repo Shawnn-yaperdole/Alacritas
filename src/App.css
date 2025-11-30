@@ -410,6 +410,30 @@ html, body, #root {
   max-width: 70%;
   margin: 0 auto;
   padding: 100px;
+  min-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.bio {
+  max-width: 100%; /* so it never overflows container */
+}
+
+.bio p {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.bio-textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.4rem;
+  overflow: hidden; /* hides the scrollbar */
+}
+
+.bio-text {
+  white-space: pre-wrap; /* preserves line breaks */
+  word-wrap: break-word;
 }
 
 .profile-pic-container {
