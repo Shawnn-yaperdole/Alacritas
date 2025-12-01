@@ -1,7 +1,6 @@
 // src/App.jsx
 import React, { useState } from 'react';
 import './App.css';
-
 import Header from './Global/Header';
 import Menu from './Global/Menu';
 import MessagesPage from './Global/Messages';
@@ -10,22 +9,22 @@ import Offers from './Global/Offers';
 import Profile from './Global/Profile';
 import ProviderHome from './Provider/ProviderHome';
 import RequestDetails from './Global/RequestDetails';
-import OfferDetails from './Global/OfferDetails'; // <-- new
-
-import {
-  MOCK_CLIENT_REQUESTS,
-  MOCK_PROVIDER,
-  MOCK_CLIENT_PENDING,
-  MOCK_CLIENT_ONGOING,
-  MOCK_CLIENT_HISTORY,
-  MOCK_PROVIDER_PENDING,
-  MOCK_PROVIDER_ONGOING,
-  MOCK_PROVIDER_HISTORY
+import OfferDetails from './Global/OfferDetails'; 
+import { 
+  MOCK_CLIENT_REQUESTS, 
+  MOCK_PROVIDER, 
+  MOCK_CLIENT_PENDING, 
+  MOCK_CLIENT_ONGOING, 
+  MOCK_CLIENT_HISTORY, 
+  MOCK_PROVIDER_PENDING, 
+  MOCK_PROVIDER_ONGOING, 
+  MOCK_PROVIDER_HISTORY 
 } from './Sample/MockData';
 
+
 function App() {
-  const [userMode, setUserMode] = useState('client'); // 'client' or 'provider'
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'messages', etc.
+  const [userMode, setUserMode] = useState('client'); 
+  const [currentView, setCurrentView] = useState('home'); 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Track selected request & offer
@@ -103,17 +102,24 @@ function App() {
             requestData={requestData}
             userRole={userMode}
             onBackToClientHome={(updatedRequest) => {
-              if (userMode === 'client' && updatedRequest) {
+              if (userMode === 'client') {
+                if (updatedRequest) {
                 const index = MOCK_CLIENT_REQUESTS.findIndex(r => r.id === updatedRequest.id);
                 if (index !== -1) {
                   MOCK_CLIENT_REQUESTS[index] = updatedRequest;
                 }
+              } else {
+                const index = MOCK_CLIENT_REQUESTS.findIndex(r => r.id === selectedRequestId);
+                if (index !== -1) {
+                  MOCK_CLIENT_REQUESTS.splice(index, 1);
+                }
               }
-              setCurrentView('home');
-            }}
-          />
-        );
-      }
+            }
+            setCurrentView('home');
+          }}
+        />
+      );
+    }
 
       case 'offer-details': {
         // Find selected offer and its related request

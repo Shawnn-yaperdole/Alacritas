@@ -2,13 +2,13 @@
 import React, { useState } from "react";
 import { uploadFileToCloudinary } from "../lib/cloudinary";
 import { saveRequest, saveRequestRealtime } from "../lib/firebase";
+import { deleteRequest, deleteRequestRealtime } from "../lib/firebase";
 
 const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
   const [title, setTitle] = useState(requestData.title || "");
   const [type, setType] = useState(requestData.type || "");
   const [location, setLocation] = useState(requestData.location || "");
   const [description, setDescription] = useState(requestData.description || "");
-  // thumbnail: string URL of image. additionalImages: array of { src: string, file?: File }
   const [thumbnail, setThumbnail] = useState(requestData.thumbnail || "");
   const initialAdditional = (requestData.images || []).map((src) => ({ src }));
   const [additionalImages, setAdditionalImages] = useState(initialAdditional);
@@ -21,13 +21,41 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
 
   // Handlers for file uploads - store File and preview URL together
   const handleUpload = (e) => {
-    const files = Array.from(e.target.files).map((file) => ({ src: URL.createObjectURL(file), file }));
-    setAdditionalImages((prev) => [...prev, ...files]);
+    const files = Array.from(e.target.files).map((file) => ({
+      src: URL.createObjectURL(file),
+      file,
+    }));
+
+    setAdditionalImages((prev) => {
+      const updated = [...prev, ...files];
+      if (!thumbnail && updated.length > 0) {
+        setThumbnail(updated[0].src);
+      }
+      return updated;
+    });
   };
 
-  const handleSelectThumbnail = (imgSrc) => {
-    setThumbnail(imgSrc);
-    setChooseThumbnailOpen(false);
+  const handleDeleteRequest = async () => {
+    if (!requestData?.id) return;
+
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this request? This action cannot be undone."
+    );
+    if (!confirmDelete) return;
+
+    try {
+      try {
+        await deleteRequestRealtime(requestData.id);
+      } catch (rtdbErr) {
+        console.warn("Realtime DB delete failed, falling back to Firestore", rtdbErr);
+        await deleteRequest(requestData.id);
+      }
+
+      if (onBackToClientHome) onBackToClientHome(null);
+    } catch (err) {
+      console.error("Failed to delete request", err);
+      alert("Failed to delete request: " + (err.message || err));
+    }
   };
 
   // ------------------ Save Changes ------------------
@@ -35,9 +63,14 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
   const [saveMessage, setSaveMessage] = useState("");
 
   const handleSaveChanges = async () => {
+    if (!title || !type || !location || !description || additionalImages.length === 0) {
+      alert("Please fill all fields and upload at least one image before saving.");
+      return;
+    }
+
     setIsSaving(true);
     setSaveMessage("");
-    // 1) Upload any new files to Cloudinary
+
     try {
       const uploaded = await Promise.all(
         additionalImages.map(async (item) => {
@@ -49,69 +82,62 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
         })
       );
 
-      // 2) Ensure thumbnail is a remote URL: if thumbnail was a local preview, map to uploaded URL
-      let thumbnailUrl = thumbnail;
       const imagesUrls = uploaded.map((u) => u.src);
-      if (thumbnailUrl && !thumbnailUrl.startsWith('http')) {
+      let thumbnailUrl = thumbnail;
+
+      // Make sure thumbnail is updated if local preview URL was used
+      if (thumbnailUrl && !thumbnailUrl.startsWith("http")) {
         const idx = additionalImages.findIndex((a) => a.src === thumbnailUrl);
         if (idx !== -1 && imagesUrls[idx]) thumbnailUrl = imagesUrls[idx];
       }
 
-      // Update local state so uploaded images are shown immediately in the UI
       setAdditionalImages(imagesUrls.map((src) => ({ src })));
-      if (thumbnailUrl) setThumbnail(thumbnailUrl);
+      setThumbnail(imagesUrls.includes(thumbnailUrl) ? thumbnailUrl : imagesUrls[0] || "");
 
-      // 3) Prepare data to save
       const payload = {
         ...requestData,
         title,
         type,
         location,
         description,
-        thumbnail: thumbnailUrl || (imagesUrls[0] || ''),
+        thumbnail: imagesUrls.includes(thumbnailUrl) ? thumbnailUrl : imagesUrls[0] || "",
         images: imagesUrls,
       };
 
-      // 4) Save to Realtime Database (preferred). Fall back to Firestore if RTDB unavailable.
       try {
         if (requestData?.id) {
           try {
             await saveRequestRealtime(requestData.id, payload);
           } catch (rtdbErr) {
-            // eslint-disable-next-line no-console
-            console.warn('Realtime DB save failed, falling back to Firestore', rtdbErr);
+            console.warn("Realtime DB save failed, falling back to Firestore", rtdbErr);
             try {
               await saveRequest(requestData.id, payload);
             } catch (fsErr) {
-              // eslint-disable-next-line no-console
-              console.warn('Firestore save failed', fsErr);
-              throw fsErr; // rethrow to be caught by outer catch
+              console.warn("Firestore save failed", fsErr);
+              throw fsErr;
             }
           }
         }
       } catch (e) {
-        // both saves failed or unexpected error
-        // eslint-disable-next-line no-console
-        console.error('Failed to save to database', e);
+        console.error("Failed to save to database", e);
         throw e;
       }
 
-      if (onBackToClientHome) {
-        onBackToClientHome(payload);
-      }
+      if (onBackToClientHome) onBackToClientHome(payload);
+
       setSaveMessage("Saved successfully.");
       setTimeout(() => setSaveMessage(""), 2500);
       setIsSaving(false);
     } catch (err) {
-      // handle upload/save errors
-      // eslint-disable-next-line no-alert
-      const msg = 'Failed to save request: ' + (err.message || err);
-      // eslint-disable-next-line no-console
+      const msg = "Failed to save request: " + (err.message || err);
       console.error(msg, err);
       setSaveMessage(msg);
       setIsSaving(false);
     }
   };
+
+  const isSaveDisabled =
+    !title || !type || !location || !description || additionalImages.length === 0;
 
   return (
     <div className="page-container flex flex-col space-y-6">
@@ -121,47 +147,34 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
       <div className="flex flex-col md:flex-row gap-6">
         {/* Images Section */}
         <div className="flex flex-col gap-4 items-center">
-          {/* Thumbnail */}
-          <div className="rd-card relative">
-            {thumbnail ? (
-              <img src={thumbnail} alt="Thumbnail" className="w-64 h-40 object-cover rounded-lg" />
-            ) : (
-              <div className="rd-add-image-box w-64 h-40 flex items-center justify-center">
-                Choose Thumbnail
-              </div>
+          <div className="rd-card relative w-64 h-40 flex flex-col items-center justify-center">
+            {thumbnail && (
+              <img
+                src={thumbnail}
+                alt="Thumbnail"
+                className="w-64 h-40 object-cover rounded-lg mb-2"
+              />
             )}
+
             {userRole === "client" && (
               <button
                 onClick={() => setChooseThumbnailOpen(true)}
                 className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
-                Choose Thumbnail
+                {thumbnail ? "Change Thumbnail" : "Choose Thumbnail"}
               </button>
             )}
           </div>
 
-          {/* Add Reference Images Button */}
           {userRole === "client" && (
-            <>
-              <div className="rd-add-image-box relative">
-                + Add Reference Images
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleUpload}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
-              <button
-                onClick={() => setViewAllOpen(true)}
-                className="mt-2 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-              >
-                View All Images
-              </button>
-            </>
+            <button
+              onClick={() => setViewAllOpen(true)}
+              className="mt-2 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+            >
+              View All Images
+            </button>
           )}
 
-          {/* Provider View All */}
           {userRole === "provider" && (
             <button
               onClick={() => setProviderViewOpen(true)}
@@ -235,7 +248,6 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
             )}
           </div>
 
-          {/* Provider Actions */}
           {userRole === "provider" && (
             <div className="flex flex-wrap gap-4 mt-2">
               <button className="action-btn btn-secondary btn-accent px-4 py-2">
@@ -249,56 +261,54 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
         </div>
       </div>
 
-      {/* Save Changes Button for Client */}
       {userRole === "client" && (
-        <div className="flex justify-center mt-6">
+        <div className="flex justify-center mt-4 gap-4">
           <button
-            className="action-btn client-post-btn px-6 py-2"
+            className={`action-btn client-post-btn px-6 py-2 ${
+              isSaveDisabled ? "opacity-50 cursor-not-allowed" : ""
+            }`}
             onClick={handleSaveChanges}
+            disabled={isSaveDisabled}
           >
             Save Changes
+          </button>
+
+          <button
+            className="action-btn btn-secondary px-6 py-2"
+            onClick={handleDeleteRequest}
+          >
+            Delete Request
           </button>
         </div>
       )}
 
       {/* ------------------ Modals ------------------ */}
-
-      {/* Choose Thumbnail Modal */}
       {chooseThumbnailOpen && (
-        <Modal title="Choose Thumbnail" onClose={() => setChooseThumbnailOpen(false)}>
-          <div className="grid grid-cols-3 gap-2">
-            {additionalImages.map((img, idx) => (
-              <img
-                key={idx}
-                src={img.src}
-                alt={`Thumbnail ${idx}`}
-                className="cursor-pointer rounded border-2 border-gray-300 hover:border-blue-500"
-                onClick={() => handleSelectThumbnail(img.src)}
-              />
-            ))}
-          </div>
-          <UploadButton onUpload={handleUpload} />
-        </Modal>
+        <ViewImagesModal
+          images={additionalImages}
+          selectThumbnail
+          onClose={() => setChooseThumbnailOpen(false)}
+          onSave={(newImages) => {
+            setAdditionalImages(newImages);
+            setThumbnail(newImages[0]?.src || "");
+            setChooseThumbnailOpen(false);
+          }}
+        />
       )}
 
-      {/* View All Images Modal (Client) */}
       {viewAllOpen && (
-        <Modal title="All Images" onClose={() => setViewAllOpen(false)}>
-          <div className="grid grid-cols-3 gap-2">
-            {additionalImages.map((img, idx) => (
-              <img
-                key={idx}
-                src={img.src}
-                alt={`Reference ${idx}`}
-                className="rounded border-2 border-gray-300"
-              />
-            ))}
-          </div>
-          <UploadButton onUpload={handleUpload} />
-        </Modal>
+        <ViewImagesModal
+          images={additionalImages}
+          onClose={() => setViewAllOpen(false)}
+          onSave={(newImages) => {
+            setAdditionalImages(newImages);
+            if (newImages.length > 0 && !thumbnail) setThumbnail(newImages[0].src);
+            if (newImages.length === 0) setThumbnail("");
+            setViewAllOpen(false);
+          }}
+        />
       )}
 
-      {/* Provider View Modal */}
       {providerViewOpen && (
         <Modal title="All Images" onClose={() => setProviderViewOpen(false)}>
           <div className="grid grid-cols-3 gap-2">
@@ -315,10 +325,9 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
         </Modal>
       )}
 
-      {/* Zoom Overlay for Provider */}
       {zoomedImage && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200]"
           onClick={() => setZoomedImage(null)}
         >
           <button
@@ -340,8 +349,8 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome }) => {
 
 // ---------- Modal Component ----------
 const Modal = ({ title, children, onClose }) => (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white p-4 rounded w-96 max-h-[80vh] overflow-y-auto relative">
+  <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center">
+    <div className="bg-white p-4 rounded w-96 max-h-[80vh] overflow-y-auto relative z-50">
       <button
         className="absolute top-2 right-2 text-gray-600 font-bold"
         onClick={onClose}
@@ -354,14 +363,127 @@ const Modal = ({ title, children, onClose }) => (
   </div>
 );
 
-// ---------- Upload Button Component ----------
-const UploadButton = ({ onUpload }) => (
-  <div className="mt-4">
-    <label className="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600">
-      Upload
-      <input type="file" multiple onChange={onUpload} className="hidden" />
-    </label>
-  </div>
-);
+// ---------- View Images Modal ----------
+const ViewImagesModal = ({ images, onClose, onSave, selectThumbnail }) => {
+  const [tempImages, setTempImages] = useState([...images]);
+  const [selectedThumbnail, setSelectedThumbnail] = useState(
+    selectThumbnail ? tempImages[0]?.src || "" : ""
+  );
+
+  const handleUpload = (files) => {
+    const newFiles = Array.from(files).map((file) => ({
+      src: URL.createObjectURL(file),
+      file,
+    }));
+    setTempImages((prev) => [...prev, ...newFiles]);
+    if (selectThumbnail && !selectedThumbnail && newFiles.length > 0) {
+      setSelectedThumbnail(newFiles[0].src);
+    }
+  };
+
+  const removeImage = (index) => {
+    const removed = tempImages[index];
+    setTempImages((prev) => prev.filter((_, i) => i !== index));
+    if (selectThumbnail && removed.src === selectedThumbnail) {
+      setSelectedThumbnail(tempImages[1]?.src || tempImages[0]?.src || "");
+    }
+  };
+
+  const clearAll = () => {
+    setTempImages([]);
+    if (selectThumbnail) setSelectedThumbnail("");
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleUpload(e.dataTransfer.files);
+      e.dataTransfer.clearData();
+    }
+  };
+  const handleDragOver = (e) => e.preventDefault();
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-4 rounded w-96 max-h-[80vh] overflow-y-auto relative"
+        onClick={(e) => e.stopPropagation()}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
+        <h3 className="font-bold mb-4 flex justify-between items-center">
+          {selectThumbnail ? "Choose Thumbnail" : "All Images"}
+          <button
+            className="px-2 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+            onClick={clearAll}
+          >
+            Clear All
+          </button>
+        </h3>
+
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {tempImages.map((img, idx) => (
+            <div key={idx} className="relative group">
+              <img
+                src={img.src}
+                alt={`img-${idx}`}
+                className={`rounded border-2 w-full h-24 object-cover ${
+                  selectThumbnail && img.src === selectedThumbnail
+                    ? "border-blue-500"
+                    : "border-gray-300"
+                }`}
+                onClick={() => selectThumbnail && setSelectedThumbnail(img.src)}
+              />
+              <button
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => removeImage(idx)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+
+          <label className="flex items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded cursor-pointer hover:border-blue-500">
+            <span className="text-2xl font-bold">+</span>
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={() => {
+              if (selectThumbnail) {
+                const reordered = [
+                  { src: selectedThumbnail },
+                  ...tempImages.filter((img) => img.src !== selectedThumbnail),
+                ];
+                onSave(reordered);
+              } else {
+                onSave(tempImages);
+              }
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default RequestDetails;

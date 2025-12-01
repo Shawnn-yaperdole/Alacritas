@@ -3,6 +3,8 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { getDatabase, ref, set as rtdbSet, push, onValue, off, query, orderByChild, update as rtdbUpdate } from 'firebase/database';
+import { remove } from "firebase/database"; // for Realtime DB
+import { deleteDoc } from "firebase/firestore"; // for Firestore
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKwB7v9CUaniJbSohzVCKh7jTjvo-XflA",
@@ -57,6 +59,21 @@ export async function saveRequestRealtime(requestId, data) {
   await rtdbSet(nodeRef, data);
   return nodeRef;
 }
+
+export const deleteRequestRealtime = async (id) => {
+  if (!id) throw new Error("No request ID provided");
+  if (!realtimeDb) throw new Error("Realtime DB not initialized");
+  const dbRef = ref(realtimeDb, `requests/${id}`);
+  await remove(dbRef);
+};
+
+// Delete from Firestore
+export const deleteRequest = async (id) => {
+  if (!id) throw new Error("No request ID provided");
+  if (!firestoreDb) throw new Error("Firestore not initialized");
+  const docRef = doc(firestoreDb, "requests", id);
+  await deleteDoc(docRef);
+};
 
 // Profile save helpers
 export async function saveProfileRealtime(profileKey, data) {
