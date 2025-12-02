@@ -71,7 +71,7 @@ const ClientHome = ({ onViewDetails, onCreateRequest }) => {
       {/* Card List */}
       <div
         className="card-list grid gap-6"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 270px))" }}
       >
         {filteredRequests.length > 0 ? (
           filteredRequests.map((req) => (

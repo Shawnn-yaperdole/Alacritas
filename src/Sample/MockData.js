@@ -14,7 +14,7 @@ const _DEFAULT_CLIENT = {
   bio: "Hello! I love connecting with providers to get things done.",
 };
 
-// If a saved profile exists in localStorage, merge it so updates persist across pages/reloads
+// Load saved profile from localStorage to persist updates
 function loadSavedProfile(key, defaults) {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return { ...defaults };
@@ -23,7 +23,6 @@ function loadSavedProfile(key, defaults) {
     const parsed = JSON.parse(raw);
     return { ...defaults, ...parsed };
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.warn('Failed to load saved profile from localStorage', e);
     return { ...defaults };
   }
@@ -96,83 +95,49 @@ const _DEFAULT_PROVIDER = {
 
 export const MOCK_PROVIDER = loadSavedProfile('alacritas_profile_provider', _DEFAULT_PROVIDER);
 
-
-
 // ==============================
-// OFFERS MOCK DATA
+// PROVIDER OFFERS (MATCH CLIENT REQUEST STRUCTURE)
 // ==============================
-
-// Client offers
-export const MOCK_CLIENT_PENDING = [
+export const MOCK_PROVIDER_OFFERS = [
   {
     id: 1,
-    requestId: 1, // link to "Fix Leaking Sink"
-    title: "Leaky Faucet",
-    provider: "Mario",
+    requestId: 1,
+    title: "Fix Kitchen Sink",
+    client: "John Doe",
     amount: "$45",
     status: "pending",
-    description: "Fix the faucet in the kitchen sink.",
+    description: "Fix the leaking sink in the kitchen.",
+    thumbnail: "https://via.placeholder.com/150x100?text=Sink",
   },
-];
-
-export const MOCK_CLIENT_ONGOING = [
-  {
-    id: 5,
-    requestId: 2, // link to "Lawn Mowing"
-    title: "Garden Cleanup",
-    provider: "Luigi",
-    amount: "$70",
-    status: "ongoing",
-    description: "Clean the backyard and trim hedges.",
-  },
-];
-
-export const MOCK_CLIENT_HISTORY = [
   {
     id: 2,
-    requestId: 3, // link to "Install Ceiling Fan"
-    title: "Toilet Repair",
-    provider: "Luigi",
-    amount: "$60",
-    status: "accepted",
-    description: "Repair leaking toilet.",
+    requestId: 2,
+    title: "Garden Cleanup",
+    client: "John Doe",
+    amount: "$70",
+    status: "ongoing",
+    description: "Clean and trim the backyard lawn.",
+    thumbnail: "https://via.placeholder.com/150x100?text=Lawn",
   },
-];
-
-// Provider offers
-export const MOCK_PROVIDER_PENDING = [
   {
     id: 3,
-    requestId: 2, // link to "Lawn Mowing"
-    title: "Pipe Fix Offer",
-    client: "Alice",
-    amount: "$80",
-    status: "pending",
-    description: "Fix the leaking pipes in the bathroom.",
+    requestId: 3,
+    title: "Ceiling Fan Installation",
+    client: "John Doe",
+    amount: "$60",
+    status: "accepted",
+    description: "Install a new ceiling fan in the living room.",
+    thumbnail: "https://via.placeholder.com/150x100?text=Fan",
   },
-];
-
-export const MOCK_PROVIDER_ONGOING = [
-  {
-    id: 6,
-    requestId: 1, // link to "Fix Leaking Sink"
-    title: "Window Repair",
-    client: "Bob",
-    amount: "$100",
-    status: "ongoing",
-    description: "Repair broken window in the living room.",
-  },
-];
-
-export const MOCK_PROVIDER_HISTORY = [
   {
     id: 4,
-    requestId: 3, // link to "Install Ceiling Fan"
-    title: "Kitchen Sink",
-    client: "Bob",
+    requestId: 4,
+    title: "Paint Living Room",
+    client: "John Doe",
     amount: "$120",
-    status: "denied",
-    description: "Fix kitchen sink plumbing.",
+    status: "pending",
+    description: "Paint the full living room including prep work.",
+    thumbnail: "https://via.placeholder.com/150x100?text=Paint",
   },
 ];
 

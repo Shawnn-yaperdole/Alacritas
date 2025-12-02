@@ -1,7 +1,6 @@
 // src/App.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
-
 import Header from './Global/Header';
 import Menu from './Global/Menu';
 import MessagesPage from './Global/Messages';
@@ -10,66 +9,93 @@ import Offers from './Global/Offers';
 import Profile from './Global/Profile';
 import ProviderHome from './Provider/ProviderHome';
 import RequestDetails from './Global/RequestDetails';
-import OfferDetails from './Global/OfferDetails'; // <-- new
+import OfferDetails from './Global/OfferDetails';
 
-import {
-  MOCK_CLIENT_REQUESTS,
-  MOCK_PROVIDER,
-  MOCK_CLIENT_PENDING,
-  MOCK_CLIENT_ONGOING,
-  MOCK_CLIENT_HISTORY,
-  MOCK_PROVIDER_PENDING,
-  MOCK_PROVIDER_ONGOING,
-  MOCK_PROVIDER_HISTORY
+import { 
+  MOCK_CLIENT_REQUESTS, 
+  MOCK_PROVIDER, 
+  MOCK_CLIENT_PENDING, 
+  MOCK_CLIENT_ONGOING, 
+  MOCK_CLIENT_HISTORY, 
+  MOCK_PROVIDER_PENDING, 
+  MOCK_PROVIDER_ONGOING, 
+  MOCK_PROVIDER_HISTORY 
 } from './Sample/MockData';
 
+import { saveOfferRealtime, saveRequestRealtime, saveOffer } from './lib/firebase';
+
 function App() {
-  const [userMode, setUserMode] = useState('client'); // 'client' or 'provider'
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'messages', etc.
+  const [userMode, setUserMode] = useState('client'); 
+  const [currentView, setCurrentView] = useState('home'); 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Track selected request & offer
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [selectedOfferId, setSelectedOfferId] = useState(null);
 
+  // Track new/existing requests
+  const [isNewRequest, setIsNewRequest] = useState(false);
+  const [tempRequestData, setTempRequestData] = useState(null);
+
+  // Offers state (replaces MOCK_PROVIDER_* and MOCK_CLIENT_*)
+  const [offers, setOffers] = useState([
+    ...MOCK_CLIENT_PENDING,
+    ...MOCK_CLIENT_ONGOING,
+    ...MOCK_CLIENT_HISTORY,
+    ...MOCK_PROVIDER_PENDING,
+    ...MOCK_PROVIDER_ONGOING,
+    ...MOCK_PROVIDER_HISTORY,
+  ]);
+
+  const [newOffer, setNewOffer] = useState(null);
+
   const toggleMode = () => {
     setUserMode(prev => (prev === 'client' ? 'provider' : 'client'));
     setCurrentView('home');
   };
 
+  // ----- RENDER LOGIC -----
   const renderContent = () => {
     switch (currentView) {
       case 'home':
         return userMode === 'client' ? (
           <ClientHome
             onViewDetails={(id) => {
+              setIsNewRequest(false);
               setSelectedRequestId(id);
               setCurrentView('request-details');
             }}
             onCreateRequest={() => {
-              // create a new mock request, append to MOCK_CLIENT_REQUESTS and navigate to its details
-              const maxId = MOCK_CLIENT_REQUESTS.reduce((m, r) => Math.max(m, r.id), 0);
-              const newId = maxId + 1;
+              setIsNewRequest(true);
+              const newId = Math.max(0, ...MOCK_CLIENT_REQUESTS.map(r => r.id)) + 1;
               const newRequest = {
                 id: newId,
-                title: 'New Request',
-                type: 'General',
+                title: '',
+                type: '',
                 date: new Date().toISOString().split('T')[0],
                 location: '',
                 status: 'draft',
                 description: '',
                 thumbnail: '',
+                images: [], 
               };
-              MOCK_CLIENT_REQUESTS.push(newRequest);
               setSelectedRequestId(newId);
               setCurrentView('request-details');
+              setTempRequestData(newRequest);
             }}
           />
         ) : (
           <ProviderHome
             onViewDetails={(id) => {
+              setIsNewRequest(false);
               setSelectedRequestId(id);
               setCurrentView('request-details');
+            }}
+            onSendOffer={(request) => {
+              setSelectedRequestId(request.id);
+              const maxOfferId = offers.length > 0 ? Math.max(...offers.map(o => o.id)) : 0;
+              setSelectedOfferId(maxOfferId + 1);
+              setCurrentView('offer-details');
             }}
           />
         );
@@ -81,6 +107,8 @@ function App() {
         return (
           <Offers
             role={userMode}
+            offers={offers}          // Pass live offers state
+            newOffer={newOffer}      // Newly sent offer
             onViewOfferDetails={(offerId) => {
               setSelectedOfferId(offerId);
               setCurrentView('offer-details');
@@ -92,42 +120,57 @@ function App() {
         return <Profile role={userMode} />;
 
       case 'request-details': {
-        // Find the request data
-        const requestData =
-          userMode === 'client'
-            ? MOCK_CLIENT_REQUESTS.find(r => r.id === selectedRequestId)
-            : MOCK_CLIENT_REQUESTS.find(r => r.id === selectedRequestId); // provider sees same data
+        const existingRequest = MOCK_CLIENT_REQUESTS.find(
+          (r) => r.id === selectedRequestId
+        );
+
+        const requestData = isNewRequest
+          ? tempRequestData
+          : existingRequest;
 
         return (
           <RequestDetails
+            isNewRequest={isNewRequest}
             requestData={requestData}
+            tempRequestData={tempRequestData}
+            setTempRequestData={setTempRequestData}
             userRole={userMode}
             onBackToClientHome={(updatedRequest) => {
               if (userMode === 'client' && updatedRequest) {
                 const index = MOCK_CLIENT_REQUESTS.findIndex(r => r.id === updatedRequest.id);
                 if (index !== -1) {
                   MOCK_CLIENT_REQUESTS[index] = updatedRequest;
+                } else if (isNewRequest) {
+                  MOCK_CLIENT_REQUESTS.push(updatedRequest);
                 }
+                saveRequestRealtime(updatedRequest.id, updatedRequest); // save to Realtime DB
               }
               setCurrentView('home');
+            }}
+            onGoToOffer={(request) => {
+              const existingOffer = offers.find(o => o.requestId === request.id);
+              if (existingOffer) {
+                setSelectedOfferId(existingOffer.id);
+              } else {
+                const maxOfferId = offers.length > 0 ? Math.max(...offers.map(o => o.id)) : 0;
+                setSelectedOfferId(maxOfferId + 1);
+              }
+              setCurrentView('offer-details');
             }}
           />
         );
       }
 
       case 'offer-details': {
-        // Find selected offer and its related request
-        const offerData = [
-          ...MOCK_CLIENT_PENDING,
-          ...MOCK_CLIENT_ONGOING,
-          ...MOCK_CLIENT_HISTORY,
-          ...MOCK_PROVIDER_PENDING,
-          ...MOCK_PROVIDER_ONGOING,
-          ...MOCK_PROVIDER_HISTORY
-        ].find(o => o.id === selectedOfferId);
+        const existingOffer = offers.find(o => o.id === selectedOfferId);
+        const isNewOffer = !existingOffer && userMode === 'provider';
+        const offerData = existingOffer || (isNewOffer
+          ? { id: selectedOfferId, description: '', amount: '', provider: MOCK_PROVIDER, requestId: selectedRequestId }
+          : null
+        );
 
-        const relatedRequest = MOCK_CLIENT_REQUESTS.find(r => r.id === offerData?.requestId);
-
+        const relatedRequest = MOCK_CLIENT_REQUESTS.find(r => r.id === selectedRequestId);
+        if (!relatedRequest) return <div>Related request not found</div>;
         if (!offerData) return <div>Offer not found</div>;
 
         return (
@@ -135,41 +178,24 @@ function App() {
             offerData={offerData}
             requestData={relatedRequest}
             userRole={userMode}
-            onBackToOffers={() => setCurrentView('offers')}
+            isNewOffer={isNewOffer}
+            onBackToClientHome={(updatedOffer) => {
+              setCurrentView(userMode === 'client' ? 'offers' : 'home');
+            }}
+            onBackToProviderHome={(newOfferPayload) => {
+              if (newOfferPayload) {
+                setNewOffer(newOfferPayload);
+                setOffers(prev => [...prev, newOfferPayload]); // update offers state
+              }
+              setCurrentView('offers');
+            }}
           />
         );
       }
 
       default:
-        return userMode === 'client' ? (
-          <ClientHome
-            onViewDetails={(id) => {
-              setSelectedRequestId(id);
-              setCurrentView('request-details');
-            }}
-            onGoToOfferDetails={() => {
-              const allOffers = [
-                ...MOCK_CLIENT_PENDING,
-                ...MOCK_CLIENT_ONGOING,
-                ...MOCK_CLIENT_HISTORY,
-                ...MOCK_PROVIDER_PENDING,
-                ...MOCK_PROVIDER_ONGOING,
-                ...MOCK_PROVIDER_HISTORY,
-              ];
-              const firstOffer = allOffers[0];
-              if (firstOffer) setSelectedOfferId(firstOffer.id);
-              else setSelectedOfferId(null);
-              setCurrentView('offer-details');
-            }}
-          />
-        ) : (
-          <ProviderHome
-            onViewDetails={(id) => {
-              setSelectedRequestId(id);
-              setCurrentView('request-details');
-            }}
-          />
-        );
+        return userMode === 'client' ? <ClientHome onViewDetails={(id) => { setIsNewRequest(false); setSelectedRequestId(id); setCurrentView('request-details'); }} />
+                                      : <ProviderHome onViewDetails={(id) => { setIsNewRequest(false); setSelectedRequestId(id); setCurrentView('request-details'); }} />;
     }
   };
 
