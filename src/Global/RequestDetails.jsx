@@ -4,8 +4,9 @@ import { uploadFileToCloudinary } from "../lib/cloudinary";
 import { saveRequest, saveRequestRealtime } from "../lib/firebase";
 import { deleteRequest, deleteRequestRealtime } from "../lib/firebase";
 import { MOCK_CLIENT_REQUESTS } from "../Sample/MockData";
+import { saveOffer, saveOfferRealtime } from "../lib/firebase";
 
-const RequestDetails = ({ requestData, userRole, onBackToClientHome, isNewRequest }) => {
+const RequestDetails = ({ requestData, userRole, onBackToClientHome, isNewRequest, onGoToOffer, onViewClientProfile}) => {
   const [title, setTitle] = useState(requestData.title || "");
   const [type, setType] = useState(requestData.type || "");
   const [location, setLocation] = useState(requestData.location || "");
@@ -53,7 +54,7 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome, isNewReques
       if (index !== -1){
         MOCK_CLIENT_REQUESTS.splice(index, 1);
       }
-      
+
       try {
         await deleteRequestRealtime(requestData.id);
       } catch (rtdbErr) {
@@ -266,10 +267,15 @@ const RequestDetails = ({ requestData, userRole, onBackToClientHome, isNewReques
 
           {userRole === "provider" && (
             <div className="flex flex-wrap gap-4 mt-2">
-              <button className="action-btn btn-secondary btn-accent px-4 py-2">
+              <button className="action-btn btn-secondary btn-accent px-4 py-2"
+              onClick={() => onGoToOffer && onGoToOffer (requestData)}
+              >
                 Send Offer
               </button>
-              <button className="action-btn btn-secondary px-4 py-2">
+
+              <button className="action-btn btn-secondary px-4 py-2"
+              onClick={() => onViewClientProfile && onViewClientProfile(requestData.clientId)}
+              >
                 View Client Profile
               </button>
             </div>

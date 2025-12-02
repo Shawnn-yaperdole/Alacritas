@@ -39,7 +39,7 @@ const RequestCard = ({ request, onViewDetails, onSendOffer }) => (
 
       <button
         className="action-btn client-view-btn w-full py-2 text-sm"
-        onClick={() => onSendOffer(request.id)}
+        onClick={() => onSendOffer && onSendOffer(request)}
       >
         Send an Offer
       </button>

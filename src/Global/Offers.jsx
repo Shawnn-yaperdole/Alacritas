@@ -1,5 +1,5 @@
 // src/Global/Offers.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   MOCK_CLIENT_PENDING,
   MOCK_CLIENT_ONGOING,
@@ -10,7 +10,7 @@ import {
   MOCK_CLIENT_REQUESTS
 } from "../Sample/MockData";
 
-const Offers = ({ role, onViewOfferDetails }) => {
+const Offers = ({ role, onViewOfferDetails, newOffer }) => {
   const isClient = role === "client";
   const isProvider = role === "provider";
 
@@ -24,6 +24,17 @@ const Offers = ({ role, onViewOfferDetails }) => {
   const [providerPending, setProviderPending] = useState(MOCK_PROVIDER_PENDING);
   const [providerOngoing, setProviderOngoing] = useState(MOCK_PROVIDER_ONGOING);
   const [providerHistory, setProviderHistory] = useState(MOCK_PROVIDER_HISTORY);
+
+  // ---------- Update state if a new offer is received ----------
+  useEffect(() => {
+    if (newOffer) {
+      if (isProvider && newOffer.status === "pending") {
+        setProviderPending(prev => [...prev, newOffer]);
+      } else if (isClient && newOffer.status === "pending") {
+        setClientPending(prev => [...prev, newOffer]);
+      }
+    }
+  }, [newOffer, isProvider, isClient]);
 
   const getCurrentData = () => {
     if (isClient) {
